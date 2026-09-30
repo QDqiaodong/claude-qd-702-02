@@ -1,0 +1,12 @@
+package com.metrology.lab;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class MetrologyLabApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(MetrologyLabApplication.class, args);
+    }
+}

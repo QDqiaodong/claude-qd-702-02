@@ -1,0 +1,473 @@
+/* 计量检定所 · 深紫主色 + 浅底深字的检定业务台配色 */
+:root {
+  --mt-primary: #4527a0;
+  --mt-primary-dark: #311b92;
+  --mt-primary-soft: #ede7f6;
+  --mt-primary-soft-2: #d1c4e9;
+  --mt-bg: #f5f3fa;
+  --mt-panel: #ffffff;
+  --mt-border: #ded9ee;
+  --mt-text: #1f2233;
+  --mt-text-sub: #6b6480;
+  --mt-danger: #c62828;
+  --mt-warn: #ef6c00;
+  --mt-ok: #2e7d32;
+  --mt-shadow: 0 2px 10px rgba(69, 39, 160, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--mt-bg);
+  color: var(--mt-text);
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+}
+
+/* ---------- 外壳 ---------- */
+.shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 顶部：品牌 + 横向面包屑 + 计数器 ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 18px;
+  background: linear-gradient(90deg, #4527a0 0%, #5e35b1 100%);
+  color: #fff;
+  box-shadow: var(--mt-shadow);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+}
+
+.brand-sub {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+/* 横向面包屑：当前委托单 / 器具的上下文条 */
+.crumb {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  overflow-x: auto;
+}
+
+.crumb-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.crumb-label {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.crumb-value {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.crumb-arrow {
+  opacity: 0.5;
+}
+
+.top-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-chip {
+  min-width: 74px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.stat-chip b {
+  display: block;
+  font-size: 16px;
+}
+
+.stat-chip span {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.stat-chip.is-alert {
+  background: rgba(198, 40, 40, 0.35);
+  border-color: rgba(255, 138, 138, 0.6);
+}
+
+/* ---------- 横向模块导航 ---------- */
+.navbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--mt-panel);
+  border-bottom: 1px solid var(--mt-border);
+  overflow-x: auto;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border: 1px solid var(--mt-border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--mt-text-sub);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.nav-btn:hover {
+  border-color: var(--mt-primary-soft-2);
+  color: var(--mt-primary);
+}
+
+.nav-btn.is-on {
+  background: var(--mt-primary);
+  border-color: var(--mt-primary);
+  color: #fff;
+}
+
+.nav-ico {
+  font-size: 14px;
+}
+
+/* ---------- 主体：左侧常驻待办队列 + 右侧页面 ---------- */
+.body-wrap {
+  flex: 1;
+  display: flex;
+  gap: 14px;
+  padding: 14px 18px 20px;
+  align-items: flex-start;
+  min-height: 0;
+}
+
+.queue {
+  width: 234px;
+  flex: 0 0 234px;
+  background: var(--mt-panel);
+  border: 1px solid var(--mt-border);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: var(--mt-shadow);
+  position: sticky;
+  top: 14px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+}
+
+.queue-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mt-primary);
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--mt-border);
+  margin-bottom: 10px;
+}
+
+.qgroup {
+  margin-bottom: 12px;
+}
+
+.qgroup-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--mt-text-sub);
+  margin-bottom: 6px;
+}
+
+.qdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mt-primary-soft-2);
+}
+
+.qdot-RECEIVED { background: #7e57c2; }
+.qdot-CALIBRATING { background: #3949ab; }
+.qdot-VERIFYING { background: #ef6c00; }
+.qdot-CERTIFYING { background: #00838f; }
+.qdot-ISSUED { background: #2e7d32; }
+.qdot-VOIDED { background: #909090; }
+
+.qcount {
+  margin-left: auto;
+  background: var(--mt-primary-soft);
+  color: var(--mt-primary);
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
+.qitem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 9px;
+  margin-bottom: 5px;
+  border: 1px solid var(--mt-border);
+  border-left: 3px solid var(--mt-primary-soft-2);
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.qitem:hover {
+  border-color: var(--mt-primary-soft-2);
+  background: var(--mt-primary-soft);
+}
+
+.qitem.is-on {
+  background: var(--mt-primary-soft);
+  border-left-color: var(--mt-primary);
+  box-shadow: inset 0 0 0 1px var(--mt-primary-soft-2);
+}
+
+/* 挂接标准器当前不可放行：整条标红边，提醒先处理再推进 */
+.qitem.is-blocked {
+  border-left-color: var(--mt-danger);
+  background: #fdf3f3;
+}
+
+.qitem.is-void {
+  opacity: 0.62;
+  border-left-color: #b0b0b0;
+}
+
+.qdevice {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 2px 0;
+}
+
+.qd-count {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--mt-primary);
+  background: var(--mt-primary-soft);
+  border-radius: 4px;
+  padding: 0 5px;
+}
+
+.qd-count.is-zero {
+  color: var(--mt-text-sub);
+  background: #f1f0f5;
+}
+
+.qd-due {
+  font-style: normal;
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 0 5px;
+  color: var(--mt-ok);
+  background: #edf6ee;
+}
+
+.qd-due.is-soon {
+  color: var(--mt-warn);
+  background: #fff4e5;
+}
+
+.qd-due.is-overdue {
+  color: var(--mt-danger);
+  background: #fdeaea;
+}
+
+.qd-block {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--mt-danger);
+}
+
+.qitem b {
+  display: block;
+  font-size: 12px;
+  color: var(--mt-text);
+}
+
+.qitem span {
+  display: block;
+  font-size: 11px;
+  color: var(--mt-text-sub);
+}
+
+.qitem em {
+  display: block;
+  font-size: 11px;
+  font-style: normal;
+  color: var(--mt-primary);
+}
+
+.qempty {
+  font-size: 11px;
+  color: var(--mt-text-sub);
+  padding: 2px 4px 6px;
+}
+
+.stage {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- 通用面板 ---------- */
+.panel {
+  background: var(--mt-panel);
+  border: 1px solid var(--mt-border);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: var(--mt-shadow);
+}
+
+.panel + .panel {
+  margin-top: 14px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mt-primary);
+}
+
+.panel-note {
+  font-size: 12px;
+  color: var(--mt-text-sub);
+}
+
+.panel-head .spacer {
+  flex: 1;
+}
+
+.split {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.split-left {
+  width: 300px;
+  flex: 0 0 300px;
+}
+
+.split-right {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- 文本与标签 ---------- */
+.muted {
+  color: var(--mt-text-sub);
+}
+
+.mono {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+.tag-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.danger-text {
+  color: var(--mt-danger);
+  font-weight: 600;
+}
+
+.warn-text {
+  color: var(--mt-warn);
+  font-weight: 600;
+}
+
+.ok-text {
+  color: var(--mt-ok);
+  font-weight: 600;
+}
+
+/* ---------- Element Plus 局部调色 ---------- */
+.el-button--primary {
+  --el-button-bg-color: var(--mt-primary);
+  --el-button-border-color: var(--mt-primary);
+  --el-button-hover-bg-color: #5e35b1;
+  --el-button-hover-border-color: #5e35b1;
+  --el-button-active-bg-color: var(--mt-primary-dark);
+}
+
+.el-tag--primary {
+  --el-tag-bg-color: var(--mt-primary-soft);
+  --el-tag-border-color: var(--mt-primary-soft-2);
+  --el-tag-text-color: var(--mt-primary);
+}
+
+.el-table th.el-table__cell {
+  background: var(--mt-primary-soft) !important;
+  color: var(--mt-text);
+}
+
+.el-drawer__title {
+  color: var(--mt-primary);
+  font-weight: 600;
+}
