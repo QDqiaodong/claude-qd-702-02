@@ -13,6 +13,7 @@
           <el-option label="报废" value="SCRAPPED" />
         </el-select>
         <el-checkbox v-model="onlyDue" size="small" style="margin: 0 6px">仅看临期</el-checkbox>
+        <el-button size="small" type="primary" plain @click="goBatch">批量核对</el-button>
         <el-button size="small" type="primary" plain @click="showNew = true">＋ 登记器具</el-button>
         <el-button size="small" @click="load">刷新</el-button>
       </div>
@@ -106,9 +107,11 @@
 
 <script setup>
 import { computed, inject, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { clientApi, instrumentApi, procedureApi } from '../api'
 
+const nav = useRouter()
 const lab = inject('lab')
 const list = ref([])
 const clients = ref([])
@@ -131,6 +134,10 @@ const rows = computed(() => {
 
 async function load() {
   list.value = onlyDue.value ? await instrumentApi.due(30) : await instrumentApi.list()
+}
+
+function goBatch() {
+  nav.push('/instruments/batch-check')
 }
 
 async function loadOptions() {

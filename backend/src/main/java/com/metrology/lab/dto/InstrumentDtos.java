@@ -1,5 +1,7 @@
 package com.metrology.lab.dto;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -7,6 +9,14 @@ import lombok.Data;
 public final class InstrumentDtos {
 
     private InstrumentDtos() {
+    }
+
+    /** 批量核对请求：POST 正文携带原始编号清单（支持多行 / 中英文逗号混用），避免超长 GET 参数。 */
+    @Data
+    public static class BatchQueryReq {
+
+        /** 用户逐行粘贴的原始编号，可为 null（按空清单处理） */
+        private List<String> instNos;
     }
 
     @Data

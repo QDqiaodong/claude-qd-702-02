@@ -77,6 +77,42 @@ public final class Views {
             LocalDateTime updatedAt) {
     }
 
+    /**
+     * 批量核对逐行结果：顺序、行数与用户输入严格一一对应，命中/未找到/空行/格式错误/重复各有状态，
+     * 任何一行无效都不影响其他行，服务端绝不压缩列表。
+     */
+    public record InstrumentBatchRowView(
+            /** 输入位置，从 0 开始（前端回填定位用） */
+            int index,
+            /** 该行用户原始输入（不做清理） */
+            String rawInput,
+            /** 规范化后的编号（去前后空白、折叠内部连续空白）；空行/格式错误行为 null */
+            String instNo,
+            /** FOUND / NOT_FOUND / BLANK / INVALID / DUPLICATE */
+            String status,
+            String statusName,
+            /** DUPLICATE 行指向同一编号首次出现的位置（首次行为 FOUND 或 NOT_FOUND） */
+            Integer duplicateOf,
+            /** 一句话说明，可直接展示 */
+            String message,
+            /** FOUND 时完整台账信息，其余状态为 null */
+            InstrumentView instrument) {
+    }
+
+    /** 批量核对整体结果（携带显式协议标识，旧调用方不会把它误认成旧版纯数组） */
+    public record InstrumentBatchResultView(
+            /** 固定 "instrument-batch-result/v1"，供调用方识别结构版本 */
+            String type,
+            /** 原始行数（含空行），与 rows.size() 一致 */
+            int total,
+            int foundCount,
+            int notFoundCount,
+            int blankCount,
+            int invalidCount,
+            int duplicateCount,
+            List<InstrumentBatchRowView> rows) {
+    }
+
     /** 模块三：检定规程 */
     public record ProcedureView(
             Long id,

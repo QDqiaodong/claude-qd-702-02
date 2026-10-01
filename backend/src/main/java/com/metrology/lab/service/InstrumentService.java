@@ -5,8 +5,10 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.hibernate.Session;
 import org.springframework.stereotype.Service;
@@ -86,24 +88,20 @@ public class InstrumentService {
     }
 
     /**
-     * 【自然主键批量加载】逗号分隔的多个器具编号一次性加载，编号不存在的位置返回 null 会被剔除。
+     * 【自然主键批量加载 · 旧版兼容】逗号分隔的多个器具编号一次性加载。
+     *
+     * <p><b>旧调用方契约保留：</b>仍返回命中器具的纯数组（未命中丢弃、不保证顺序），
+     * 不静默改成新的逐行结构；新功能请用 {@link #batchQuery(List)}。
+     *
+     * @deprecated 改用 {@code POST /api/instruments/batch-query}，按原始输入逐行返回状态，
+     *             未找到/空行/格式错误/重复都保留位置，不再丢行。
      */
+    @Deprecated
     @Transactional(readOnly = true)
     public List<Views.InstrumentView> batchByInstNos(String instNos) {
-        List<String> nos = new ArrayList<>();
-        String raw = instNos == null ? "" : instNos;
-        for (String no : raw.split(",")) {
-            String trimmed = no.trim();
-            if (!trimmed.isEmpty()) {
-                nos.add(trimmed);
-            }
-        }
         // Hibernate 6 里批量自然主键加载走 byMultipleNaturalId：
         // Session.byMultipleIds() 只认 @Id 代理主键，传业务编号会报 Error coercing value
-        List<Instrument> loaded = session()
-                .byMultipleNaturalId(Instrument.class)
-                .enableOrderedReturn(false)
-                .multiLoad(nos);
+        List<Instrument> loaded = multiLoadDistinct(legacyParse(instNos));
         Map<Long, String> clientName = clientNameMap();
         List<Views.InstrumentView> list = new ArrayList<>();
         for (Instrument instrument : loaded) {
@@ -112,6 +110,243 @@ public class InstrumentService {
             }
         }
         return list;
+    }
+
+    /** 旧版入参解析：仅按英文逗号切分、去空白、丢空串（行为保持不变）。 */
+    private static List<String> legacyParse(String instNos) {
+        List<String> nos = new ArrayList<>();
+        String raw = instNos == null ? "" : instNos;
+        for (String no : raw.split(",", -1)) {
+            String trimmed = no.trim();
+            if (!trimmed.isEmpty()) {
+                nos.add(trimmed);
+            }
+        }
+        return nos;
+    }
+
+    /** 清理编号前后的 Unicode 空白（含全角空格），保留内部空白以便按格式错误识别。 */
+    private static String stripOuterSpace(String text) {
+        if (text == null) {
+            return "";
+        }
+        int start = 0;
+        int end = text.length();
+        while (start < end && Character.isWhitespace(text.charAt(start))) {
+            start++;
+        }
+        while (end > start && Character.isWhitespace(text.charAt(end - 1))) {
+            end--;
+        }
+        return text.substring(start, end);
+    }
+
+    // ============================ 批量核对（逐行结果） ============================
+
+    /** 新批量核对返回结构的显式标识，旧调用方凭它区分新旧结构 */
+    public static final String BATCH_RESULT_TYPE = "instrument-batch-result/v1";
+
+    /** 单次批量核对允许的最大输入行数（原始行，含空行），超限直接 400 提示分批 */
+    public static final int BATCH_MAX_LINES = 5000;
+
+    /** 单次批量核对允许的最大切分后编号数（逗号混排后） */
+    public static final int BATCH_MAX_TOKENS = 10000;
+
+    /** 单次 IN 批量加载的最大编号数：大清单在服务端切片，避免一条巨型 IN 语句 */
+    public static final int DB_CHUNK_SIZE = 200;
+
+    /** 器具编号合法字符：字母、数字、连字符、下划线、点、斜杠、井号（如 JLB-0025 / JJG 21-2021 类不含空格） */
+    private static final Pattern VALID_INST_NO = Pattern.compile("[A-Za-z0-9_.\\-/#]{1,32}");
+
+    /** 逗号类分隔符：英文逗号、中文逗号（含全角空格不属于分隔符，正常 trim 掉） */
+    private static final Pattern COMMA_SPLIT = Pattern.compile("[,，]");
+
+    /**
+     * 批量核对主入口：按用户输入的原始顺序逐行返回，命中回填完整台账，
+     * 未找到 / 空行 / 格式错误 / 重复分别标状态，绝不压缩列表、绝不让一行无效拖垮整批。
+     *
+     * @param rawLines 用户粘贴的原始行（每行还可以再用中英文逗号混排多个编号）
+     */
+    @Transactional(readOnly = true)
+    public Views.InstrumentBatchResultView batchQuery(List<String> rawLines) {
+        if (rawLines != null && rawLines.size() > BATCH_MAX_LINES) {
+            throw new BizException("一次最多核对 " + BATCH_MAX_LINES + " 行，请拆分成多批后再查询");
+        }
+
+        // 1) 逐行展开成 token：保留每个 token 的原始文本与展平后的位置（index 与前端约定一致）
+        List<String> tokens = new ArrayList<>();
+        List<String> tokenRaw = new ArrayList<>();
+        if (rawLines != null) {
+            for (String line : rawLines) {
+                String safe = line == null ? "" : line;
+                for (String part : COMMA_SPLIT.split(safe, -1)) {
+                    tokenRaw.add(part);
+                    // 编号前后空白统一清理：除半角空格外还含全角空格等 Unicode 空白；内部空白不清理（判格式错误）
+                    tokens.add(stripOuterSpace(part));
+                }
+            }
+        }
+        if (tokens.size() > BATCH_MAX_TOKENS) {
+            throw new BizException("一次最多核对 " + BATCH_MAX_TOKENS
+                    + " 个编号（当前 " + tokens.size() + " 个），请拆分成多批后再查询");
+        }
+
+        // 2) 逐行分类：BLANK / INVALID 先定；合法编号标记首次出现位置，后续出现标 DUPLICATE
+        Map<String, Integer> firstIndexByKey = new HashMap<>();
+        String[] normalized = new String[tokens.size()];
+        int[] dupOf = new int[tokens.size()];
+        boolean[] valid = new boolean[tokens.size()];
+        java.util.Arrays.fill(dupOf, -1);
+
+        List<String> uniqueToQuery = new ArrayList<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            String t = tokens.get(i);
+            if (t.isEmpty()) {
+                continue; // BLANK
+            }
+            if (t.length() > 32 || !VALID_INST_NO.matcher(t).matches() || t.chars().anyMatch(Character::isWhitespace)) {
+                continue; // INVALID
+            }
+            valid[i] = true;
+            normalized[i] = t;
+            String key = t.toLowerCase(java.util.Locale.ROOT);
+            Integer first = firstIndexByKey.get(key);
+            if (first == null) {
+                firstIndexByKey.put(key, i);
+                uniqueToQuery.add(t);
+            } else {
+                dupOf[i] = first;
+            }
+        }
+
+        // 3) 相同编号在本请求内只查库一次；服务端切片批量自然主键加载，绝不逐条访问数据库
+        Map<String, Instrument> foundByKey = new HashMap<>();
+        List<String> unresolved = new ArrayList<>();
+        for (int from = 0; from < uniqueToQuery.size(); from += DB_CHUNK_SIZE) {
+            int to = Math.min(from + DB_CHUNK_SIZE, uniqueToQuery.size());
+            List<Instrument> chunk = multiLoadDistinct(uniqueToQuery.subList(from, to));
+            for (Instrument ins : chunk) {
+                if (ins != null) {
+                    foundByKey.put(ins.getInstNo().toLowerCase(java.util.Locale.ROOT), ins);
+                }
+            }
+            for (int i = from; i < to; i++) {
+                String no = uniqueToQuery.get(i);
+                if (!foundByKey.containsKey(no.toLowerCase(java.util.Locale.ROOT))) {
+                    unresolved.add(no);
+                }
+            }
+        }
+        // 4) 大小写兜底：自然主键批量加载在大小写敏感的库上可能漏掉「大小写不同但同一编号」的器具，
+        //    对未命中编号再做一次 LOWER 查询（仍按批切片），规则与台账唯一约束一致
+        for (int from = 0; from < unresolved.size(); from += DB_CHUNK_SIZE) {
+            int to = Math.min(from + DB_CHUNK_SIZE, unresolved.size());
+            List<String> lower = new ArrayList<>();
+            for (int i = from; i < to; i++) {
+                lower.add(unresolved.get(i).toLowerCase(java.util.Locale.ROOT));
+            }
+            for (Instrument ins : instrumentRepository.findCaseInsensitive(lower)) {
+                foundByKey.putIfAbsent(ins.getInstNo().toLowerCase(java.util.Locale.ROOT), ins);
+            }
+        }
+
+        // 5) 组装逐行视图：先渲染首次行（FOUND / NOT_FOUND），重复行回填首次行结果
+        Map<Long, String> clientName = clientNameMap();
+        Views.InstrumentBatchRowView[] rowArr = new Views.InstrumentBatchRowView[tokens.size()];
+        int found = 0, notFound = 0, blank = 0, invalid = 0, duplicate = 0;
+
+        for (int i = 0; i < tokens.size(); i++) {
+            String raw = tokenRaw.get(i);
+            String displayRaw = raw == null ? "" : raw;
+            if (!valid[i] && dupOf[i] < 0) {
+                if (tokens.get(i).isEmpty()) {
+                    blank++;
+                    rowArr[i] = row(i, displayRaw, null, "BLANK", null, "空行：未填写编号", null);
+                } else {
+                    invalid++;
+                    rowArr[i] = row(i, displayRaw, null, "INVALID", null,
+                            "编号格式有误：仅支持字母、数字与 - _ . / #，长度不超过 32 位", null);
+                }
+            }
+        }
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!valid[i]) {
+                continue;
+            }
+            if (dupOf[i] >= 0) {
+                continue; // 稍后回填
+            }
+            Instrument ins = foundByKey.get(normalized[i].toLowerCase(java.util.Locale.ROOT));
+            if (ins != null) {
+                found++;
+                rowArr[i] = row(i, tokenRaw.get(i), normalized[i], "FOUND", null,
+                        "已命中台账", toView(ins, clientName));
+            } else {
+                notFound++;
+                rowArr[i] = row(i, tokenRaw.get(i), normalized[i], "NOT_FOUND", null,
+                        "台账中未找到编号 " + normalized[i], null);
+            }
+        }
+        for (int i = 0; i < tokens.size(); i++) {
+            if (dupOf[i] >= 0) {
+                duplicate++;
+                int first = dupOf[i];
+                Views.InstrumentBatchRowView head = rowArr[first];
+                String same = "FOUND".equals(head.status())
+                        ? "与第 " + (first + 1) + " 行为同一器具，未重复查询"
+                        : "与第 " + (first + 1) + " 行编号重复，该编号台账未找到";
+                rowArr[i] = row(i, tokenRaw.get(i), normalized[i], "DUPLICATE", first, same, head.instrument());
+            }
+        }
+
+        List<Views.InstrumentBatchRowView> rows = new ArrayList<>(tokens.size());
+        java.util.Collections.addAll(rows, rowArr);
+        return new Views.InstrumentBatchResultView(
+                BATCH_RESULT_TYPE, rows.size(), found, notFound, blank, invalid, duplicate, rows);
+    }
+
+    private static Views.InstrumentBatchRowView row(int index, String rawInput, String instNo, String status,
+                                                    Integer duplicateOf, String message,
+                                                    Views.InstrumentView instrument) {
+        return new Views.InstrumentBatchRowView(index, rawInput, instNo, status, batchStatusName(status),
+                duplicateOf, message, instrument);
+    }
+
+    /** 批量核对行状态中文名（状态码全部服务端判定，前端只展示）。 */
+    public static String batchStatusName(String status) {
+        return switch (status) {
+            case "FOUND" -> "已命中";
+            case "NOT_FOUND" -> "未找到";
+            case "BLANK" -> "空行";
+            case "INVALID" -> "格式错误";
+            case "DUPLICATE" -> "重复输入";
+            default -> status;
+        };
+    }
+
+    /**
+     * 自然主键批量加载的唯一出口：入参先去重（相同编号只查库一次），
+     * 不要求数据库保证返回顺序（enableOrderedReturn(false)），顺序由调用方自己按编号对齐。
+     *
+     * <p>protected 是为了让自动化测试能替换它，确定制造「数据库乱序返回」的场景。
+     */
+    protected List<Instrument> multiLoadDistinct(List<String> nos) {
+        if (nos.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Map<String, String> distinct = new LinkedHashMap<>();
+        for (String no : nos) {
+            if (no != null && !no.isBlank()) {
+                distinct.putIfAbsent(no.trim(), no.trim());
+            }
+        }
+        if (distinct.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return session()
+                .byMultipleNaturalId(Instrument.class)
+                .enableOrderedReturn(false)
+                .multiLoad(new ArrayList<>(distinct.values()));
     }
 
     @Transactional(readOnly = true)

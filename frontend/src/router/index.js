@@ -13,6 +13,13 @@ export const navItems = [
     hint: '竖向步骤流转 + A4 证书预览'
   },
   {
+    key: 'batch-check',
+    path: '/instruments/batch-check',
+    icon: '🔎',
+    label: '器具批量核对',
+    hint: '多行/逗号批量编号核对，逐行回填'
+  },
+  {
     key: 'instruments',
     path: '/instruments',
     icon: '🧭',
@@ -46,6 +53,7 @@ const routes = [
   { path: '/', redirect: '/orders' },
   { path: '/orders', name: 'orders', component: () => import('../views/OrderFlowView.vue') },
   { path: '/instruments', name: 'instruments', component: () => import('../views/InstrumentView.vue') },
+  { path: '/instruments/batch-check', name: 'batch-check', component: () => import('../views/BatchCheckView.vue') },
   { path: '/procedures', name: 'procedures', component: () => import('../views/ProcedureView.vue') },
   { path: '/clients', name: 'clients', component: () => import('../views/ClientView.vue') },
   { path: '/devices', name: 'devices', component: () => import('../views/StandardDeviceView.vue') },

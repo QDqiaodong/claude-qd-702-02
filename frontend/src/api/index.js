@@ -48,8 +48,16 @@ export const instrumentApi = {
   list: () => http.get('/instruments'),
   /** 【@NaturalId】按器具编号查器具 */
   find: (instNo) => http.get(`/instruments/${encodeURIComponent(instNo)}`),
-  /** 【@NaturalId 批量加载】逗号分隔的多个器具编号 */
+  /**
+   * 【@NaturalId 批量加载 · 旧版兼容】仅按英文逗号切分，未命中会被丢弃、不保证顺序。
+   * @deprecated 新代码请用 batchQuery —— 逐行带状态、保留位置。
+   */
   batch: (instNos) => http.get('/instruments/batch', { params: { instNos } }),
+  /**
+   * 批量核对：POST 请求体携带原始行（支持多行、中英文逗号混排），
+   * 服务端按输入顺序逐行返回 FOUND / NOT_FOUND / BLANK / INVALID / DUPLICATE。
+   */
+  batchQuery: (lines) => http.post('/instruments/batch-query', { instNos: lines }),
   /** 派生查询：N 天内到期清单 */
   due: (days) => http.get('/instruments/due', { params: { days } }),
   create: (data) => http.post('/instruments', data),
