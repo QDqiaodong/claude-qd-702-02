@@ -77,6 +77,48 @@ public final class Views {
             LocalDateTime updatedAt) {
     }
 
+    /**
+     * 模块二：批量核对结果。
+     *
+     * <p>{@code rows} 与用户输入逐行一一对应：不会因为某行无效而缺失，也不会压缩。
+     * 重复编号在本次请求里只查库一次，但每个输入位置都拿到完整结果回填。
+     */
+    public record InstrumentBatchView(
+            String apiVersion,
+            /** 总行数（含空行），恒等于 rows.size()，方便旧调用方快速核对 */
+            int total,
+            int foundCount,
+            int notFoundCount,
+            int emptyCount,
+            int invalidCount,
+            int duplicateCount,
+            List<InstrumentBatchRowView> rows) {
+    }
+
+    /**
+     * 批量核对中的一行结果。
+     *
+     * @param index      0 基的原始输入位置，稳定排序键
+     * @param rawInput   用户原始输入（未 trim），重复行各自保留
+     * @param normalized 规范化后的编号（仅去首尾空白；空行为 null；格式错误保留 trim 后文本）
+     * @param status     FOUND 命中 / NOT_FOUND 台账无此编号 / EMPTY 空行 /
+     *                   INVALID 格式错误 / DUPLICATE 与本次请求中更早的一行规范化编号相同
+     * @param statusName 状态中文名
+     * @param message    未命中/空/格式错误/重复时的一句话说明，命中为空串
+     * @param duplicateOfIndex 重复行首次出现的位置（index），非重复行为 null
+     * @param instrument 命中时的完整台账信息，其余状态为 null
+     */
+    public record InstrumentBatchRowView(
+            int index,
+            String rawInput,
+            String normalized,
+            String status,
+            String statusName,
+            String message,
+            Integer duplicateOfIndex,
+            InstrumentView instrument) {
+    }
+
     /** 模块三：检定规程 */
     public record ProcedureView(
             Long id,

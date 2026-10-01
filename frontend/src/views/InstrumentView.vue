@@ -1,5 +1,8 @@
 <template>
   <div>
+    <!-- 批量编号核对：逐行返回，未找到/空行/格式错误/重复原位标明，支持只重查失败行 -->
+    <InstrumentBatchPanel />
+
     <section class="panel">
       <div class="panel-head">
         <span class="panel-title">计量器具台账</span>
@@ -108,6 +111,7 @@
 import { computed, inject, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { clientApi, instrumentApi, procedureApi } from '../api'
+import InstrumentBatchPanel from '../components/InstrumentBatchPanel.vue'
 
 const lab = inject('lab')
 const list = ref([])

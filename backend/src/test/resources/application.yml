@@ -3,7 +3,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:h2:mem:metlab;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    # COLLATION ... STRENGTH PRIMARY：对齐生产 MySQL utf8mb4_unicode_ci 的大小写不敏感比较，
+    # 器具编号大小写等价规则才能在 H2 测试里被真实覆盖
+    url: jdbc:h2:mem:metlab;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;COLLATION=ENGLISH STRENGTH PRIMARY
     driver-class-name: org.h2.Driver
     username: sa
     password: ""

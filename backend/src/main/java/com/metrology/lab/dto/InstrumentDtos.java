@@ -1,5 +1,7 @@
 package com.metrology.lab.dto;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -7,6 +9,21 @@ import lombok.Data;
 public final class InstrumentDtos {
 
     private InstrumentDtos() {
+    }
+
+    /**
+     * 批量核对请求：整段文本（多行 / 逗号分隔）走 POST body，避免长清单撑爆 GET 地址参数。
+     *
+     * <p>服务端统一负责拆分与规范化，调用方只把用户原始粘贴内容原样传上来。
+     */
+    @Data
+    public static class BatchLookupReq {
+
+        /** 用户原始输入：允许换行、半角逗号、全角逗号、中文顿号混合分隔。 */
+        private String text;
+
+        /** 已拆分好的逐行输入：text 与 instNos 二选一，同时给以 text 为准。 */
+        private List<String> instNos;
     }
 
     @Data

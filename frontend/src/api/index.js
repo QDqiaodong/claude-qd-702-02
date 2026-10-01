@@ -48,8 +48,13 @@ export const instrumentApi = {
   list: () => http.get('/instruments'),
   /** 【@NaturalId】按器具编号查器具 */
   find: (instNo) => http.get(`/instruments/${encodeURIComponent(instNo)}`),
-  /** 【@NaturalId 批量加载】逗号分隔的多个器具编号 */
+  /** 【@NaturalId 批量加载 · 已废弃】逗号分隔，仍返回裸数组；新代码请用 batchLookup */
   batch: (instNos) => http.get('/instruments/batch', { params: { instNos } }),
+  /**
+   * 【批量核对 v2】按输入原始顺序逐行返回 FOUND/NOT_FOUND/EMPTY/INVALID/DUPLICATE。
+   * 用 POST body 承载编号数组，长清单由调用方分批（见 views/instrumentBatch.js）。
+   */
+  batchLookup: (instNos) => http.post('/instruments/batch-lookup', { instNos }),
   /** 派生查询：N 天内到期清单 */
   due: (days) => http.get('/instruments/due', { params: { days } }),
   create: (data) => http.post('/instruments', data),
